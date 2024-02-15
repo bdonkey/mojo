@@ -14,10 +14,10 @@ listing:
   - id: docs
     contents:
       - always-inline.ipynb
-      - noncapturing.ipynb
       - nonmaterializable.ipynb
       - parameter.ipynb
       - register-passable.ipynb
+      - staticmethod.ipynb
       - unroll.ipynb
       - value.ipynb
     type: grid

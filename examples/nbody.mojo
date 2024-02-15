@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
+# RUN: %mojo -debug-level full %s | FileCheck %s
 
 # This sample implements the nbody benchmarking in
 # https://benchmarksgame-team.pages.debian.net/benchmarksgame/performance/nbody.html
@@ -60,8 +61,10 @@ fn offset_momentum(inout bodies: StaticTuple[NUM_BODIES, Planet]):
 fn advance(inout bodies: StaticTuple[NUM_BODIES, Planet], dt: Float64):
     @unroll
     for i in range(NUM_BODIES):
+        var body_i = bodies[i]
+
+        @unroll(NUM_BODIES - 1)
         for j in range(NUM_BODIES - i - 1):
-            var body_i = bodies[i]
             var body_j = bodies[j + i + 1]
             let diff = body_i.pos - body_j.pos
             let diff_sqr = (diff * diff).reduce_add()
@@ -70,8 +73,9 @@ fn advance(inout bodies: StaticTuple[NUM_BODIES, Planet], dt: Float64):
             body_i.velocity -= diff * body_j.mass * mag
             body_j.velocity += diff * body_i.mass * mag
 
-            bodies[i] = body_i
             bodies[j + i + 1] = body_j
+
+        bodies[i] = body_i
 
     @unroll
     for i in range(NUM_BODIES):
@@ -181,6 +185,7 @@ fn bench():
     for i in range(50_000_000):
         advance(system, 0.01)
 
+    # CHECK: Energy of System
     print("Energy of System:", energy(system))
 
 

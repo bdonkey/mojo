@@ -40,11 +40,447 @@ modular clean
 modular install mojo
 ```
 
-[//]: # Here's the template to use when starting a new batch of notes:
-[//]: ## UNRELEASED
-[//]: ### ⭐️ New
-[//]: ### 🦋 Changed
-[//]: ### 🛠️ Fixed
+## v0.7.0 (2024-01-25)
+
+### ⭐️ New
+
+- A new Mojo-native dictionary type,
+  [`Dict`](/mojo/stdlib/collections/dict.html) for storing key-value pairs.
+  `Dict` stores values that conform to the
+  [`CollectionElement`](/mojo/stdlib/collections/vector.html#collectionelement)
+  trait. Keys need to conform to the new
+  [`KeyElement`](/mojo/stdlib/collections/dict.html#keyelement) trait, which is
+  not yet implemented by other standard library types. In the short term, you
+  can create your own wrapper types to use as keys. For example, the following
+  sample defines a `StringKey` type and uses it to create a dictionary that maps
+  strings to `Int` values:
+
+  ```mojo
+  from collections.dict import Dict, KeyElement
+
+  @value
+  struct StringKey(KeyElement):
+      var s: String
+
+      fn __init__(inout self, owned s: String):
+          self.s = s ^
+
+      fn __init__(inout self, s: StringLiteral):
+          self.s = String(s)
+
+      fn __hash__(self) -> Int:
+          return hash(self.s)
+
+      fn __eq__(self, other: Self) -> Bool:
+          return self.s == other.s
+
+  fn main() raises:
+      var d = Dict[StringKey, Int]()
+      d["cats"] = 1
+      d["dogs"] = 2
+      print(len(d))         # prints 2
+      print(d["cats"])      # prints 1
+      print(d.pop("dogs"))  # prints 2
+      print(len(d))         # prints 1
+  ```
+
+  We plan to add `KeyElement` conformance to standard library types in
+  subsequent releases.
+
+- Users can opt-in to assertions used in the standard library code by
+  specifying `-D MOJO_ENABLE_ASSERTIONS` when invoking `mojo` to
+  compile your source file(s).  In the case that an assertion is fired,
+  the assertion message will be printed along with the stack trace
+  before the program exits.  By default, assertions are _not enabled_
+  in the standard library right now for performance reasons.
+
+- The Mojo Language Server now implements the References request. IDEs use
+  this to provide support for **Go to References** and **Find All References**.
+  A current limitation is that references outside of the current document are
+  not supported, which will be addressed in the future.
+
+- The [`sys.info`](/mojo/stdlib/sys/info) module now includes
+  `num_physical_cores()`, `num_logical_cores()`, and `num_performance_cores()`
+  functions.
+
+- Homogenous variadic arguments consisting of memory-only types, such as
+  `String` are more powerful and easier to use. These arguments are projected
+  into a
+  [`VariadicListMem`](/mojo/stdlib/builtin/builtin_list.html#variadiclistmem).
+
+  (Previous releases made it easier to use variadic lists of register-passable
+  types, like `Int`.)
+
+  Subscripting into a `VariadicListMem` now returns the element instead of an
+  obscure internal type. In addition, we now support `inout` and `owned`
+  variadic arguments:
+
+  ```mojo
+  fn make_worldly(inout *strs: String):
+      # This "just works" as you'd expect!
+      for i in range(len(strs)):
+          strs[i] += " world"
+  fn main():
+      var s1: String = "hello"
+      var s2: String = "konnichiwa"
+      var s3: String = "bonjour"
+      make_worldly(s1, s2, s3)
+      print(s1)  # hello world
+      print(s2)  # konnichiwa world
+      print(s3)  # bonjour world
+  ```
+
+  (Previous releases made it easier to use variadic lists, but subscripting into
+  a `VariadicListMem` returned a low-level pointer, which required the user to
+  call `__get_address_as_lvalue()` to access the element.)
+
+  Note that subscripting the variadic list works nicely as above, but
+  iterating over the variadic list directly with a `for` loop produces a
+  [`Reference`](/mojo/stdlib/memory/unsafe#reference) (described below) instead
+  of the desired value, so an extra subscript is required; We intend to fix this
+  in the future.
+
+  ```mojo
+  fn make_worldly(inout *strs: String):
+      # Requires extra [] to dereference the reference for now.
+      for i in strs:
+          i[] += " world"
+  ```
+
+  Heterogenous variadic arguments have not yet been moved to the new model, but
+  will in future updates.
+
+  Note that for variadic arguments of register-passable types like `Int`, the
+  variadic list contains values, not references, so the dereference operator
+  (`[]`) is not required. This code continues to work as it did previously:
+
+  ```mojo
+  fn print_ints(*nums: Int):
+      for num in nums:
+          print(num)
+      print(len(nums))
+  ```
+
+- Mojo now has a prototype version of a safe
+  [`Reference`](/mojo/stdlib/memory/unsafe#reference) type. The compiler's
+  lifetime tracking pass can reason about references to safely extend local
+  variable lifetime, and check indirect access safety.  The `Reference` type
+  is brand new (and currently has no syntactic sugar) so it must be explicitly
+  dereferenced with an empty subscript: `ref[]` provides access to the
+  underlying value.
+
+  ```mojo
+  fn main():
+      var a : String = "hello"
+      var b : String = " references"
+
+      var aref = Reference(a)
+      aref[] += b
+      print(a)  # prints "hello references"
+
+      aref[] += b
+      # ^last use of b, it is destroyed here.
+
+      print(aref[]) # prints "hello references references"
+      # ^last use of a, it is destroyed here.
+  ```
+
+  While the `Reference` type has the same in-memory representation as a C
+  pointer or the Mojo `Pointer` type, it also tracks a symbolic "lifetime" value
+  so the compiler can reason about the potentially accessed set of values.  This
+  lifetime is part of the static type of the reference, so it propagates through
+  generic algorithms and abstractions built around it.
+
+  The `Reference` type can form references to both mutable and immutable memory
+  objects, e.g. those on the stack or borrowed/inout/owned function arguments.
+  It is fully parametric over mutability, eliminating the [problems with code
+  duplication due to mutability
+  specifiers](https://duckki.github.io/2024/01/01/inferred-mutability.html) and
+  provides the base for unified user-level types. For example, it could be
+  used to implement an array slice object that handles both mutable and immutable
+  array slices.
+
+  While this is a major step forward for the lifetimes system in Mojo, it is
+  still _very_ early and awkward to use.  Notably, there is no syntactic sugar
+  for using references, such as automatic dereferencing. Several aspects of it
+  need to be more baked. It is getting exercised by variadic memory arguments,
+  which is why they are starting to behave better now.
+
+  Note: the safe `Reference` type and the unsafe pointer types are defined in
+  the same module, currently named `memory.unsafe`. We expect to restructure
+  this module in a future release.
+
+- Mojo now allows types to implement `__refattr__()` and `__refitem__()` to
+  enable attribute and subscript syntax with computed accessors that return
+  references. For common situations where these address a value in memory this
+  provides a more convenient and significantly more performant alternative to
+  implementing the traditional get/set pairs.  Note: this may be changed in the
+  future when references auto-dereference—at that point we may switch to just
+  returning a reference from `__getattr__()`.
+
+### ❌ Removed
+
+- The `__takeinit__` special constructor form has been removed from the
+  language.  This "non-destructive move" operation was previously wired into the
+  `x^` transfer operator, but had unpredictable behavior that wasn't consistent.
+  Now that Mojo has traits, it is better to model this as an explicit `.take()`
+  operation on a type, which would transfer out the contents of the type without
+  ending its lifetime. For example, for a type that holds a pointer, `take()`
+  might return a new instance pointing to the same data, and null out its own
+  internal pointer.
+
+  This change makes it clear when a lifetime is ended versus when the
+  contents of an LValue are explicitly taken.
+
+- The current implementation of autotuning has been deprecated, as Mojo's
+  autotuning implementation is undergoing a redesign. Tutorials around the
+  current implementation have also been removed as they are being rewritten.
+
+  Consequently, the `autotune()`, `autotune_fork()`, and `search()` functions
+  have been removed from the standard library.
+
+- The `_OldDynamicVector` type that worked only on register passable element
+  types has been removed.  Please migrate uses to
+  [`DynamicVector`](/mojo/stdlib/collections/vector.html#dynamicvector) which
+  works on both register passable and memory types.
+
+- The `UnsafeFixedVector` in `utils.vector` has been removed. We recommend using
+  either [`DynamicVector`](/mojo/stdlib/collections/vector.html#dynamicvector)
+  or [`InlinedFixedVector`](/mojo/stdlib/collections/vector.html#inlinedfixedvector)
+  instead.
+
+- The `@adaptive` decorator has been removed from the language. Any uses of the
+  decorator in a non-search context can be replaced with `@parameter if`. For
+  example:
+
+  ```mojo
+  @adaptive
+  fn foo[a: Bool]():
+    constrained[a]()
+    body1()
+
+  @adaptive
+  fn foo[a: Bool]():
+    constrained[not a]()
+    body2()
+  ```
+
+  Can be rewritten as:
+
+  ```mojo
+  fn foo[a: Bool]():
+      @parameter
+      if a:
+          body1()
+      else:
+          body2()
+  ```
+
+  Consequently, the special `__adaptive_set` attribute has been removed as well.
+
+- Result parameters have been removed from Mojo. Result parameter declarations
+  in function parameter lists are no longer allowed, nor are forward alias
+  declarations. This includes removing the `param_return` statement.
+
+- The `@noncapturing` and `@closure` decorators have been removed due to
+  refinements and improvements to the closure model. See below for more details!
+
+### 🦋 Changed
+
+- The Mojo closure model has been refined to be more straightforward and safe.
+  Mojo has two closure types: parameter closures and runtime closures. Parameter
+  closures can be used in higher-order functions and are the backbone of
+  functions like `vectorize` and `parallelize`. They are always denoted by
+  `@parameter` and have type `fn() capturing -> T` (where `T` is the return
+  type).
+
+  On the other hand, runtime closures are always dynamic values, capture values
+  by invoking their copy constructor, and retain ownership of their capture
+  state. You can define a runtime closure by writing a nested function that
+  captures values:
+
+  ```mojo
+  fn outer(b: Bool, x: String) -> fn() escaping -> None:
+      fn closure():
+          print(x) # 'x' is captured by calling String.__copyinit__
+
+      fn bare_function():
+          print("hello") # nothing is captured
+
+      if b:
+          # closure can be safely returned because it owns its state
+          return closure^
+
+      # function pointers can be converted to runtime closures
+      return bare_function
+  ```
+
+  The type of runtime closures are of the form `fn() escaping -> T`. You
+  can pass equivalent function pointers as runtime closures.
+
+  Stay tuned for capture list syntax for move capture and capture by reference,
+  and a more unified closure model!
+
+- The `@unroll(n)` decorator can now take a parameter expression for
+  the unroll factor, i.e. `n` can be a parameter expression that is
+  of integer type.
+
+- `vectorize` now has an overload to pass `size` as a parameter instead of an
+  argument. This allows the remainder of `size` / `simd_width` to run in a
+  single iteration.
+
+- The `cpython` module in the `python` package has been moved to be an internal
+  module, i.e, `_cpython`.
+
+- `AnyType` and `Destructable` have been unified into a single trait, `AnyType`.
+  Every nominal type (i.e. all structs) now automatically conform to `AnyType`.
+
+- Previously, the `mojo package` command would output a Mojo package that
+  included both partly-compiled Mojo code, as well as fully-compiled machine
+  code for a specific computer architecture -- the architecture of the machine
+  being used to invoke the `mojo package` command.
+
+  Now, `mojo package` only includes partly-compiled Mojo code. It is only fully
+  compiled for the specific computer architecture being used at the point that
+  the package is first `import`-ed. As a result, Mojo packages are smaller and
+  more portable.
+
+- The `simd_width` and `dtype` parameters of `polynomial_evaluate` have been
+  switched. Based on the request in
+  [#1587](https://github.com/modularml/mojo/issues/1587), the
+  `polynomial_evaluate` function has also been extended so that the
+  `coefficients` parameter can take either a either a
+  [`StaticTuple`](/mojo/stdlib/utils/static_tuple#statictuple) or a
+  [`VariadicList`](/mojo/stdlib/builtin/builtin_list#variadiclist).
+
+- As a tiny step towards removing `let` declarations, this release removes the
+  warning: `'var' was never mutated, consider switching to a 'let'`.
+
+### 🛠️ Fixed
+
+- [#1595](https://github.com/modularml/mojo/issues/1595) - Improve error message
+  when trying to materialize `IntLiteral` in runtime code.
+- Raising an error from the initializer of a memory-only type now works
+  correctly in the presence of complex control flow.  Previously Mojo could run
+  the destructor on `self` before it was initialized when exiting with an
+  error.
+- [#1096](https://github.com/modularml/mojo/issues/1096) - Improve warning
+  messages for dead code in conditionals like `or` expressions.
+- [#1419](https://github.com/modularml/mojo/issues/1419) - Fix assertion failure
+  with uninitialized lattice values.
+- [#1402](https://github.com/modularml/mojo/issues/1402) - Fix movable trait not
+  detected on recursive struct implemented with `AnyPointer`.
+- [#1399](https://github.com/modularml/mojo/issues/1399) - Fix parser crash when
+  a parameter type in a struct that implements a trait is misspelled.
+- [#1152](https://github.com/modularml/mojo/issues/1152) - Allow mutable `self`
+  argument when overloading operators using dunder methods.
+- [#1493](https://github.com/modularml/mojo/issues/1493) - Fix crash in
+  `DynamicVector` copy constructor in certain situations.
+- [#1316](https://github.com/modularml/mojo/issues/1316) - The `benchmark.keep`
+  function now properly handles vector types.
+- [#1505](https://github.com/modularml/mojo/issues/1505) - The `simd.shuffle`
+  operation now works on 64 element permutations.
+- [#1355](https://github.com/modularml/mojo/issues/1355) - Fix `String.find()`
+  returning wrong value when starting index is non-zero.
+- [#1367](https://github.com/modularml/mojo/issues/1367) - Fix `String.replace()`
+  returning incorrect results for multi-character search strings.
+- [#1535](https://github.com/modularml/mojo/issues/1535) - Invalid error `field
+  'w.x.y' destroyed out of the middle of a value, preventing the overall value
+  from being destroyed`.
+- [#1475](https://github.com/modularml/mojo/issues/1475) - Assertion failure in
+  nested loop.
+- [#1591](https://github.com/modularml/mojo/issues/1591) - Assertion failure
+  when using `AnyType` struct member.
+- [#1503](https://github.com/modularml/mojo/issues/1503) - Rename the mojo build
+  of LLDB to `mojo-lldb`, to prevent name collisions with the system's LLDB.
+- [#1542](https://github.com/modularml/mojo/issues/1542) - `@unroll` does not
+  accept alias as unroll factor.
+- [#1443](https://github.com/modularml/mojo/issues/1443) - Compiler crash on
+  variadic list of traits.
+- [#1604](https://github.com/modularml/mojo/issues/1604) - Variable of trivial
+  type not destroyed by transferring ownership.
+- [#1341](https://github.com/modularml/mojo/issues/1341) - Segmentation fault
+  when passing closures around.
+- [#217](https://github.com/modularml/mojo/issues/217) - Closure state is
+  stack allocated.
+
+## v0.6.1 (2023-12-18)
+
+### ⭐️ New
+
+- The Mojo REPL now provides limited support for the `%cd` magic command.
+
+  This command automatically maintains an internal stack of directories you
+  visit during the REPL session. Usage:
+
+  - `%cd 'dir'`: change to directory `dir` and push it on the directory stack.
+  - `%cd -`: pop the directory stack and change to the last visited directory.
+
+- Structs decorated with `@value` now automatically conform to the
+  [`Movable`](/mojo/stdlib/builtin/value.html#movable)
+  and [`Copyable`](/mojo/stdlib/builtin/value.html#copyable) built-in traits.
+
+- [`String`](/mojo/stdlib/builtin/string.html#string) now has new
+  [`toupper()`](/mojo/stdlib/builtin/string.html#toupper) and
+  [`tolower()`](/mojo/stdlib/builtin/string.html#tolower) methods analogous,
+  respectively, to Python's `str.toupper()` and `str.tolower()`.
+
+- Added a [`hash()`](/mojo/stdlib/builtin/hash.html#hash) built-in function and
+  [`Hashable`](/mojo/stdlib/builtin/hash.html#Hashable) trait for types
+  implementing the `__hash__()` method. Future releases will add `Hashable`
+  support to Standard Library types. In the meantime, the `hash` module includes
+  a version of the `hash()` function that works on arbitrary byte strings. To
+  generate hashes for [`SIMD`](/mojo/stdlib/builtin/simd.html#simd) types, you
+  use the internal `_hash_simd()` function:
+
+  ```mojo
+  from builtin.hash import _hash_simd
+
+  fn gen_simd_hash():
+      let vector = SIMD[DType.int64, 4](1, 2, 3, 4)
+      let hash = _hash_simd(vector)
+  ```
+
+- Several standard library types now conform to the
+  [`CollectionElement`](/mojo/stdlib/collections/vector.html#collectionelement)
+  trait.  These types include [`Bool`](/mojo/stdlib/builtins/bool.html#bool),
+  [`StringLiteral`](/mojo/stdlib/builtin/string_literal.html#stringliteral),
+  [`DynamicVector`](/mojo/stdlib/collections/vector.html#dynamicvector),
+  [`Tensor`](/mojo/stdlib/tensor/tensor.html#tensor),
+  [`TensorShape`](/mojo/stdlib/tensor/tensor_shape.html#tensor_shape),
+  and [`TensorSpec`](/mojo/stdlib/tensor/tensor_spec.html#tensor_spec).
+
+### 🦋 Changed
+
+- `utils.vector` has been moved to a new `collections` package to make
+  space for new collections. This means that if you had previous code
+  that did `from utils.vector import DynamicVector`, it now needs to
+  be `from collections.vector import DynamicVector` due to the move.
+
+- The special destructor method `__del__()` has been changed to enforce
+  that it cannot raise an error. Raising destructors are not supported properly
+  at the moment.
+
+### 🛠️ Fixed
+
+- [#1421](https://github.com/modularml/mojo/issues/1421) - Fixed a crash when
+  using Tuples in the REPL.
+
+- [#222](https://github.com/modularml/mojo/issues/222) - Generate an error
+  for obviously self recursive functions.
+
+- [#1408](https://github.com/modularml/mojo/issues/1408) - Fix overload
+  resolution when candidates can return generic types.
+
+- [#1413](https://github.com/modularml/mojo/issues/1413) and
+  [#1395](https://github.com/modularml/mojo/issues/1395) - Do not crash when
+  re-declaring a builtin declaration.
+
+- [#1307](https://github.com/modularml/mojo/issues/1307) - Fix compatibility of
+  function signatures that only differ in default argument values.
+
+- [#1380](https://github.com/modularml/mojo/issues/1380) - Fix printing
+  of empty `String`.
 
 ## v0.6.0 (2023-12-04)
 
@@ -136,13 +572,13 @@ modular install mojo
 - We've added some traits to the standard library, you can implement these on
   your own types:
 
-  - [`Destructable`](/mojo/stdlib/builtin/destructable.html)
+  - [`Destructable`](/mojo/stdlib/builtin/anytype.html#anytype)
   - [`Copyable`](/mojo/stdlib/builtin/value.html#copyable)
   - [`Movable`](/mojo/stdlib/builtin/value.html#movable)
   - [`Stringable`](/mojo/stdlib/builtin/str.html#stringable)
   - [`Intable`](/mojo/stdlib/builtin/int.html#intable)
   - [`Sized`](/mojo/stdlib/builtin/len.html#sized)
-  - [`CollectionElement`](/mojo/stdlib/utils/vector.html#collectionelement)
+  - [`CollectionElement`](/mojo/stdlib/collections/vector.html#collectionelement)
 
 - We added built-in [`len()`](/mojo/stdlib/builtin/len.html#len),
   [`str()`](/mojo/stdlib/builtin/str.html#str), and
@@ -150,7 +586,7 @@ modular install mojo
   types that implement the `Sized`, `Stringable`, and `Intable` traits,
   respectively.
 
-- [`DynamicVector`](/mojo/stdlib/utils/vector.html#dynamicvector) is now a
+- [`DynamicVector`](/mojo/stdlib/collections/vector.html#dynamicvector) is now a
   proper generic collection that can use any type that implements the `Movable`
   and `Copyable` traits. This means you can now write, for example,
   `DynamicVector[String]`. Also, `DynamicVector` now invokes its element
@@ -317,16 +753,16 @@ modular install mojo
   let tensor_from_file = Tensor[DType.float32].load(path)
   ```
 
-  - Subscripting added to
-    [`DTypePointer`](/mojo/stdlib/memory/unsafe.html#dtypepointer) and
-    [`Pointer`](/mojo/stdlib/memory/unsafe.html#pointer):
+- Subscripting added to
+  [`DTypePointer`](/mojo/stdlib/memory/unsafe.html#dtypepointer) and
+  [`Pointer`](/mojo/stdlib/memory/unsafe.html#pointer):
 
-    ```mojo
-    let p = DTypePointer[DType.float16].alloc(4)
-    for i in range(4):
-        p[i] = i
-        print(p[i])
-    ```
+  ```mojo
+  let p = DTypePointer[DType.float16].alloc(4)
+  for i in range(4):
+      p[i] = i
+      print(p[i])
+  ```
 
 - `file.FileHandle` now has a `seek()` method.
 
@@ -638,7 +1074,7 @@ modular install mojo
 
 - [`TensorShape`](/mojo/stdlib/tensor/tensor_shape.html) and
   [`TensorSpec`](/mojo/stdlib/tensor/tensor_shape.html) now have constructors
-  that take [`DynamicVector[Int]`](/mojo/stdlib/utils/vector.html#dynamicvector)
+  that take [`DynamicVector[Int]`](/mojo/stdlib/collections/vector.html#dynamicvector)
   and [`StaticIntTuple`](/mojo/stdlib/utils/index_.html#staticinttuple) to
   initialize shapes.
 
@@ -668,7 +1104,7 @@ modular install mojo
   ```
 
 - The parameters for
-  [`InlinedFixedVector`](/mojo/stdlib/utils/vector.html#inlinedfixedvector)
+  [`InlinedFixedVector`](/mojo/stdlib/collections/vector.html#inlinedfixedvector)
   have been switched. The parameters are now `[type, size]` instead of
   `[size, type]`. The `InlinedFixedVector` now has a default size which means
   that one can just use `InlinedFixedVector` as `InlinedFixedVector[Float32]`
@@ -682,7 +1118,7 @@ modular install mojo
   machine by default. The prior default behavior was to use all the cores on
   the first socket.
 
-#### ❌ Removed
+### ❌ Removed
 
 - The `math.numerics` module is now private, because its types (`FPUtils` and
   `FlushDenormals`) should not be used externally.
