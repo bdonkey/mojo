@@ -1,6 +1,6 @@
 # Simplifying Mojo🔥 - let's get rid of `let`!
 
-Chris Lattner / Dec 5, 2023
+Chris Lattner, Dec 5, 2023, Status: **Accepted**, [discussion thread](https://github.com/modularml/mojo/discussions/1456#discussioncomment-8358722)
 
 Mojo is still a new language, and is rapidly evolving.  We’re learning a lot
 from other languages, but Mojo poses its own set of tradeoffs that indicate a
@@ -38,7 +38,7 @@ Javascript) and there is a divergence of naming for all these things:
 
 3. Mojo also has a notion of compile time value (`alias`), which means there are
 three concepts going around: `alias`, `let`, and `var`.  Most of the uses of
-(e.g.) Javascript `const`` is better served with `alias` than `let`.
+(e.g.) Javascript `const` is better served with `alias` than `let`.
 
 4. Both Swift and Rust encourage immutable values - Swift (and currently Mojo)
 warn about unneeded mutability, Rust makes mutability more verbose (`let mut`),

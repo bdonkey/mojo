@@ -1,15 +1,9 @@
 ---
 title: Mojo🔥
 sidebar_label: Overview
+hide_table_of_contents: true
 description: A programming language that bridges the gap between AI research
   and production, unlocking speed and usability.
-image: /static/images/max-mojo-logo.png
-website:
-  open-graph:
-    image: /static/images/mojo-social-card.png
-  twitter-card:
-    image: /static/images/mojo-social-card.png
-toc: false
 anchor-sections: false
 listing:
   - id: docs
@@ -37,11 +31,6 @@ metaprogramming. With Mojo, you can write portable code that's faster than C
 and seamlessly inter-op with the Python ecosystem.
 
 The Mojo SDK is available for Linux and macOS! 🔥
-
-<p><a class="modLink" href="https://developer.modular.com/download">Get the Mojo
-SDK</a></p>
-
-<p><a class="modLink" href="/mojo/community.html">Join our community</a></p>
 
 :::{#docs}
 :::

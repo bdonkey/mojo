@@ -9,13 +9,6 @@ website:
     image: /static/images/mojo-social-card.png
 ---
 
-<style>
-    .content h3 {
-        font-size: 1rem;
-        font-weight: bold;
-    }
-</style>
-
 We tried to anticipate your questions about Mojo on this page. If this page
 doesn't answer all your questions, also check out our [Mojo community
 channels](/mojo/community.html).
@@ -268,11 +261,8 @@ uses matrix multiplication to show off some Mojo features in a scenario that
 you would never attempt in pure Python. So that implementation is like a “toy”
 matmul implementation and it doesn’t measure up to the state of the art.
 
-Plus, if you're using the [Mojo Playground](https://playground.modular.com),
-that VM environment is not set up for stable performance evaluation. Modular
-has a separate matmul implementation written in Mojo (and used by the [Modular
-MAX Engine](/engine)) that is not available with this release, but you can read
-about it in [this blog
+Modular has a separate matmul implementation written in Mojo and used by
+[MAX Engine](/engine), which you can read about it in [this blog
 post](https://www.modular.com/blog/the-worlds-fastest-unified-matrix-multiplication).
 
 ### Are there any AI related performance benchmarks for Mojo?
@@ -285,7 +275,7 @@ about our kernel performance in our [matrix multiplication blog
 post](https://www.modular.com/blog/the-worlds-fastest-unified-matrix-multiplication).
 For details about our end-to-end model performance relative to the latest
 releases of TensorFlow and PyTorch, check out our [performance
-dashboard](https://performance.modular.com).
+dashboard](https://www.modular.com/max/performance).
 
 ## Mojo SDK
 
@@ -295,8 +285,30 @@ You can [get the Mojo SDK here](https://developer.modular.com/download)!
 
 ### Is the Mojo Playground still available?
 
-Yes, you can [get access today](https://www.modular.com/get-started)
-to the Mojo Playground, a hosted set of Mojo-supported Jupyter notebooks.
+Yes, but it's different. When we first announced Mojo, it was available
+only through login, in a JupyterLab environment. Now that Mojo is available
+for local development, we've shut down that service (you can instead [run
+Mojo notebooks
+locally](https://github.com/modularml/mojo/tree/main/examples/notebooks#readme)).
+
+The new [Mojo Playground](/mojo/playground) is built into the docs website
+and does not require login.
+
+- It provides access to Mojo and the Mojo standard library. It does not have
+  network access, so you can't install additional Mojo or Python packages.
+
+- It doesn't include any Python packages by default. In the future,
+  we intend to make some common Python packages available to import in the
+  Playground.
+
+- You can download your code or share it as a gist, but there's no mechanism
+  for saving code in the Playground itself. Any changes will be lost when you
+  switch code examples (as well as in the event of a server refresh or update).
+  If you come up with something you want to save, download it or share it
+  using buttons in the Playground toolbar.
+
+- There might be some bugs. Please [report issues and feedback on
+  GitHub](https://github.com/modularml/mojo/issues/new/choose).
 
 ### What are the license terms for the SDK?
 
@@ -334,27 +346,37 @@ containers to enable remote development in Mojo.
 
 ### Does the Mojo SDK collect telemetry?
 
-Yes, in combination with the Modular CLI tool, the Mojo SDK collects some basic
-system information and crash reports that enable us to identify, analyze, and
-prioritize Mojo issues.
+Yes, the Mojo SDK collects some basic system information, basic
+compiler/runtime events, and crash reports that enable us to identify, analyze,
+and prioritize Mojo issues.
 
-Mojo is still in its early days, and this telemetry is crucial to help us
-quickly identify problems and improve Mojo. Without this telemetry, we would
-have to rely on user-submitted bug reports, and in our decades of building
-developer products, we know that most people don’t bother. Plus, a lot of
-product issues are not easily identified by users or quantifiable with
-individual bug reports. The telemetry provides us the insights we need to build
-Mojo into a premier developer product.
+This telemetry is crucial to help us quickly identify problems and improve our
+products. Without this telemetry, we would have to rely on user-submitted bug
+reports, and in our decades of experience building developer products, we know
+that most people don’t do that. The telemetry provides us the insights we need
+to build better products for you.
 
-Of course, if you don't want to share this information with us, you can easily
-opt-out of all telemetry, using the [`modular` CLI](/cli). To stop sharing
-system information, run this:
+You can opt-out of the crash report and compiler/runtime telemetry, but
+package install/update/uninstall events cannot be
+disabled (see the [MAX SDK terms](https://www.modular.com/legal/max)).
 
-`modular config-set telemetry.enabled=false`
+To disable crash reports, use this command:
 
-To stop sharing crash reports, run this:
+```sh
+modular config-set crash_reporting.enabled=false
+```
 
-`modular config-set crash_reporting.enabled=false`
+To reduce other telemetry to only the required telemetry events, use this
+command:
+
+```sh
+modular config-set telemetry.level=0
+```
+
+There are 3 telemetry levels: `0` currently records nothing (unless you're also
+using MAX, which records hardware information and session durations); `1`
+records high-level events such as when the compiler is invoked; and `2` records
+more detail such as the time spend compiling.
 
 ## Versioning & compatibility
 

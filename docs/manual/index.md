@@ -2,6 +2,8 @@
 title: "Mojo Manual"
 sidebar_label: Introduction
 description: A comprehensive guide to the Mojo programming language.
+aliases:
+  - /mojo/programming-manual.html
 css: /static/styles/page-navigation.css
 website:
   open-graph:
@@ -30,47 +32,46 @@ feedback](/mojo/community.html).
 
 - **Get started**
 
-  - [Get started with Mojo](get-started/index.html)
-  - [Hello World!](get-started/hello-world.html)
+  - [Get started with Mojo](/mojo/manual/get-started/index.html)
+  - [Hello World!](/mojo/manual/get-started/hello-world.html)
 
-- **Basics**
+- **Language basics**
 
-  - [Language basics](basics.html)
-  - [Functions](functions.html)
-  - [Variables](variables.html)
-  - [Structs](structs.html)
-  - [Traits](traits.html)
+  - [Introduction to Mojo](/mojo/manual/basics.html)
+  - [Functions](/mojo/manual/functions.html)
+  - [Variables](/mojo/manual/variables.html)
+  - [Structs](/mojo/manual/structs.html)
+  - [Modules and packages](/mojo/manual/packages.html)
 
 - **Value ownership**
 
-  - [Intro to value ownership](values/index.html)
-  - [Value semantics](values/value-semantics.html)
-  - [Ownership and borrowing](values/ownership.html)
+  - [Intro to value ownership](/mojo/manual/values/index.html)
+  - [Value semantics](/mojo/manual/values/value-semantics.html)
+  - [Ownership and borrowing](/mojo/manual/values/ownership.html)
 
 - **Value lifecycle**
 
-  - [Intro to value lifecycle](lifecycle/index.html)
-  - [Life of a value](lifecycle/life.html)
-  - [Death of a value](lifecycle/death.html)
+  - [Intro to value lifecycle](/mojo/manual/lifecycle/index.html)
+  - [Life of a value](/mojo/manual/lifecycle/life.html)
+  - [Death of a value](/mojo/manual/lifecycle/death.html)
 
-- **Metaprogramming**
+- **Traits and parameters**
 
-  - [Parameterization: compile-time metaprogramming](parameters/index.html)
+  - [Traits](/mojo/manual/traits.html)
+  - [Parameterization: compile-time metaprogramming](/mojo/manual/parameters/index.html)
 
 - **Python**
 
-  - [Python integration](python/index.html)
-  - [Python types](python/types.html)
+  - [Python integration](/mojo/manual/python/index.html)
+  - [Python types](/mojo/manual/python/types.html)
 
-- **Decorators**
+- **Tools**
 
-  - [Mojo decorators](decorators/index.html)
-  - [@always_inline](decorators/always-inline.html)
-  - [@nonmaterializable](decorators/nonmaterializable.html)
-  - [@parameter](decorators/parameter.html)
-  - [@register_passable](decorators/register-passable.html)
-  - [@staticmethod](decorators/staticmethod.html)
-  - [@unroll](decorators/unroll.html)
-  - [@value](decorators/value.html)
+  - [Debugging](/mojo/tools/debugging.html)
 
-- [Modules and packages](packages.html)
+- **Project information**
+
+  - [Roadmap and sharp edges](/mojo/roadmap.html)
+  - [Changelog](/mojo/changelog.html)
+  - [FAQ](/mojo/faq.html)
+  - [Community](/mojo/community.html)
